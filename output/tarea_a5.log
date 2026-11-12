@@ -1,0 +1,285 @@
+---------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\franc\OneDrive\Documentos\Programac
+> ión\a5-tarea-formativa\output/tarea_a5.log
+  log type:  text
+ opened on:  12 Nov 2026, 17:34:54
+
+. 
+. pwd 
+C:\Users\franc\OneDrive\Documentos\Programación\a5-tarea-
+> formativa
+
+. cd "C:\Users\franc\OneDrive\Documentos\Programación\a5-
+> tarea-formativa"
+C:\Users\franc\OneDrive\Documentos\Programación\a5-tarea-
+> formativa
+
+. 
+. ** 2. Cargar Datos
+. import delimited "data/raw/casen_reducido.csv", clear v
+> arnames(1) encoding("utf-8")
+(6 vars, 60 obs)
+
+. describe
+
+Contains data
+ Observations:            60                  
+    Variables:             6                  
+---------------------------------------------------------
+Variable      Storage   Display    Value
+    name         type    format    label      Variable la
+> bel
+---------------------------------------------------------
+region          str13   %13s                  
+sector          str13   %13s                  
+educ            byte    %8.0g                 
+edad            byte    %8.0g                 
+ingreso         long    %12.0g                
+genero          str1    %9s                   
+---------------------------------------------------------
+Sorted by: 
+     Note: Dataset has changed since last saved.
+
+. summarize
+
+    Variable |        Obs        Mean    Std. dev.       
+> Min        Max
+-------------+-------------------------------------------
+> --------------
+      region |          0
+      sector |          0
+        educ |         60    12.73333    3.328697        
+>   6         20
+        edad |         60    44.51667    15.15959        
+>  20         70
+     ingreso |         55    655290.9    209912.4     180
+> 000    1093000
+-------------+-------------------------------------------
+> --------------
+      genero |          0
+
+. 
+. ** 3. Crea variables con `generate` y `replace`
+. * Experiencia potencial de MINCER: edad - educ - 6, con
+>  piso en 0
+. generate experiencia = max(edad - educ - 6, 0)
+
+. 
+. * Indicadores, genero es texto por eso se compara con "
+> F"
+. generate mujer     = (genero == "F")
+
+. generate alta_educ = ( educ >= 13)   // 13 o mas años d
+> e educacion
+
+. 
+. * generate + replace por tramo de edad (1 = <30. 2 = 30
+> -49, 3 = +50)
+. generate tramo_edad = 1
+
+. replace  tramo_edad = 2 if edad >= 30
+(46 real changes made)
+
+. replace  tramo_edad = 3 if edad >= 50
+(26 real changes made)
+
+. 
+. ** 4. Etiqueta (la cultura de Stata)
+. label variable experiencia "Experiencia potencial (años
+> )"
+
+. label variable mujer       "Mujer (1 = si)"
+
+. label variable alta_educ   "Educacion alta (13+ años)"
+
+. label variable tramo_edad  "Tramo de edad (1 = <30, 2 =
+>  30,49, 3 = 50+)"
+
+. 
+. * Etiquetas de valores de los indicadores
+. label define sino 0 "No" 1 "Si"
+
+. label values alta_educ sino
+
+. 
+. ** 5. Cuidado con los missing
+. count if missing(ingreso)     // 5 
+  5
+
+. * ¿Por qué `summarize ingreso` no se equivoca con los m
+> issing, pero `count
+. * if ingreso > 500000` **sí** puede equivocarse?
+. * Respuesta: summarize excluye automaticamente los miss
+> ing de sus calculos, 
+. * asi que la media y el N solo usan a quienes tienen da
+> to. En cambio, en
+. * STATA el missing es mayor que cualquier numero, asi q
+> ue la condicion
+. * "ingreso < 500000" tambien es verdadera para los miss
+> ing, y count los 
+. * cuenta como si fueran ingresos altos. Hay que excluir
+> los:
+. 
+. count if ingreso > 500000 // incorrecto porque incluye 
+> missing, serian 46
+  46
+
+. count if ingreso > 500000 & !missing(ingreso) // correc
+> to, son 41
+  41
+
+. 
+. ** 6. Descriptivos
+. 
+. * 6.1 Variables numéricas (lista en una macro: se cambi
+> a en un solo lugar)
+. local numericas "ingreso educ edad experiencia"
+
+. summarize `numericas'
+
+    Variable |        Obs        Mean    Std. dev.       
+> Min        Max
+-------------+-------------------------------------------
+> --------------
+     ingreso |         55    655290.9    209912.4     180
+> 000    1093000
+        educ |         60    12.73333    3.328697        
+>   6         20
+        edad |         60    44.51667    15.15959        
+>  20         70
+ experiencia |         60    25.78333     15.3182        
+>   0         53
+
+. summarize ingreso, detail
+
+                           ingreso
+---------------------------------------------------------
+> ----
+      Percentiles      Smallest
+ 1%       180000         180000
+ 5%       276000         226000
+10%       384000         276000       Obs                
+>   55
+25%       497000         363000       Sum of wgt.        
+>   55
+
+50%       672000                      Mean           6552
+> 90.9
+                        Largest       Std. dev.      2099
+> 12.4
+75%       807000         959000
+90%       948000         975000       Variance       4.41
+> e+10
+95%       975000         987000       Skewness      -.174
+> 3242
+99%      1093000        1093000       Kurtosis       2.40
+> 7897
+
+. 
+. * 6.2 Tabulación de una categórica
+. tabulate sector
+
+       sector |      Freq.     Percent        Cum.
+--------------+-----------------------------------
+  Agricultura |         13       21.67       21.67
+     Comercio |          6       10.00       31.67
+ Construcción |          5        8.33       40.00
+    Educación |          8       13.33       53.33
+    Industria |         11       18.33       71.67
+    Servicios |         17       28.33      100.00
+--------------+-----------------------------------
+        Total |         60      100.00
+
+. 
+. * 6.3 Tabulación cruzada y summarize por grupo
+. tabulate sector alta_educ
+
+              |  Educacion alta (13+
+              |         años)
+       sector |        No         Si |     Total
+--------------+----------------------+----------
+  Agricultura |         7          6 |        13 
+     Comercio |         5          1 |         6 
+ Construcción |         4          1 |         5 
+    Educación |         0          8 |         8 
+    Industria |         4          7 |        11 
+    Servicios |        10          7 |        17 
+--------------+----------------------+----------
+        Total |        30         30 |        60 
+
+. foreach g in F M {
+  2.     display _newline "--- Ingreso, genero = `g' ---"
+  3.     summarize ingreso if genero == "`g'"
+  4. }
+
+--- Ingreso, genero = F ---
+
+    Variable |        Obs        Mean    Std. dev.       
+> Min        Max
+-------------+-------------------------------------------
+> --------------
+     ingreso |         27    636296.3    224593.3     180
+> 000    1093000
+
+--- Ingreso, genero = M ---
+
+    Variable |        Obs        Mean    Std. dev.       
+> Min        Max
+-------------+-------------------------------------------
+> --------------
+     ingreso |         28    673607.1    197088.3     226
+> 000     987000
+
+. 
+. * 6.4 Correlaciones (correlate usa solo filas completas
+> )
+. correlate ingreso educ experiencia
+(obs=55)
+
+             |  ingreso     educ experi~a
+-------------+---------------------------
+     ingreso |   1.0000
+        educ |   0.6767   1.0000
+ experiencia |  -0.0875  -0.1171   1.0000
+
+
+. 
+. * 6.5 Guardar un resultado con scalar ANTES de que r() 
+> se sobrescriba, pero scalar se conserva
+. summarize ingreso
+
+    Variable |        Obs        Mean    Std. dev.       
+> Min        Max
+-------------+-------------------------------------------
+> --------------
+     ingreso |         55    655290.9    209912.4     180
+> 000    1093000
+
+. scalar media_ingreso = r(mean)
+
+. scalar n_ingreso     = r(N)
+
+. summarize educ                     // este comando sobr
+> escribe r()...
+
+    Variable |        Obs        Mean    Std. dev.       
+> Min        Max
+-------------+-------------------------------------------
+> --------------
+        educ |         60    12.73333    3.328697        
+>   6         20
+
+. display "Media de ingreso (guardada): $" %9.0fc media_i
+> ngreso " pesos, N = " n_ingreso
+Media de ingreso (guardada): $  655,291 pesos, N = 55
+
+. 
+. ** 7. Cierra la bitácora e interpreta
+. log close
+      name:  <unnamed>
+       log:  C:\Users\franc\OneDrive\Documentos\Programac
+> ión\a5-tarea-formativa\output/tarea_a5.log
+  log type:  text
+ closed on:  12 Nov 2026, 17:34:54
+---------------------------------------------------------
